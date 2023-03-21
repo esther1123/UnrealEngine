@@ -1,0 +1,1 @@
+start WindowsServer\DayOneServer.exe -log -port=7779
