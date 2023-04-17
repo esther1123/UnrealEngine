@@ -33,13 +33,17 @@ SET CURR_BUILD_VERSION=1.0.0
 FOR /F "tokens=* USEBACKQ" %%F IN (`aws gamelift list-builds --query "reverse(sort_by(Builds[?Name==`DayOne`], &CreationTime))[0].Version" --output text`) DO (
     SET CURR_BUILD_VERSION=%%F
 )
-SET /a NEW_PATCH_VERSION=%CURR_BUILD_VERSION:~4,3% + 1
+if "%CURR_BUILD_VERSION%"=="None" (
+    SET NEW_PATCH_VERSION=0
+) else (
+    SET /a NEW_PATCH_VERSION=%CURR_BUILD_VERSION:~4,3% + 1
+)
 SET NEW_BUILD_VERSION=1.0.%NEW_PATCH_VERSION%
 ECHO Current build version is %CURR_BUILD_VERSION%, raise the build version to %NEW_BUILD_VERSION%
 echo.
 
 echo Please wait while DayOneServer is being uploaded to GameLift...
-aws gamelift upload-build --name DayOne --build-version %NEW_BUILD_VERSION% --build-root "WindowsServer" --operating-system WINDOWS_2012 --region ap-northeast-1
+aws gamelift upload-build --name DayOne --build-version %NEW_BUILD_VERSION% --build-root "WindowsServer" --operating-system WINDOWS_2012
 echo.
 
 echo Fetch DayOne's latest Build Id in GameLift...
@@ -50,8 +54,10 @@ FOR /F "tokens=* USEBACKQ" %%F IN (`aws gamelift list-builds --query "reverse(so
 ECHO New Build Id is %BUILD_ID%
 echo.
 
+timeout /T 5 /NOBREAK > nul
+
 echo Create fleet based on new Build Id...
-aws gamelift create-fleet --name DayOne-%NEW_BUILD_VERSION% --build-id %BUILD_ID% --ec2-instance-type "c5.xlarge" --fleet-type ON_DEMAND --ec2-inbound-permissions "FromPort=7777,ToPort=7777,IpRange=0.0.0.0/0,Protocol=UDP" "FromPort=3389,ToPort=3389,IpRange=0.0.0.0/0,Protocol=TCP" --runtime-configuration "ServerProcesses=[{LaunchPath=C:\game\DayOne\Binaries\Win64\DayOneServer.exe,Parameters=-log=..\..\Binaries\Win64\DayOneGameLift.log -port=7777,ConcurrentExecutions=2}]"
+aws gamelift create-fleet --name DayOne-%NEW_BUILD_VERSION% --build-id %BUILD_ID% --ec2-instance-type "c6i.8xlarge" --fleet-type SPOT --ec2-inbound-permissions "FromPort=7777,ToPort=7777,IpRange=0.0.0.0/0,Protocol=UDP" "FromPort=3389,ToPort=3389,IpRange=0.0.0.0/0,Protocol=TCP" --runtime-configuration "ServerProcesses=[{LaunchPath=C:\game\DayOne\Binaries\Win64\DayOneServer.exe,Parameters=-log=..\..\Binaries\Win64\DayOneGameLift.log -port=7777,ConcurrentExecutions=2}]"
 echo.
 
 pause
